@@ -18,15 +18,54 @@ const initDatabase = async () => {
     const initSQL = fs.readFileSync(path.join(__dirname, '../database/init.sql'), 'utf8');
     await pool.query(initSQL);
     console.log('✅ Banco de dados inicializado com sucesso!');
+    
+    // Criar/atualizar usuário admin com senha correta
+    await createAdminUser();
   } catch (error) {
-    // Se o arquivo não existir ou já estiver inicializado, continua normalmente
     if (error.code === 'ENOENT') {
       console.log('ℹ️ Arquivo init.sql não encontrado, pulando inicialização');
     } else if (error.message.includes('already exists') || error.message.includes('duplicate')) {
       console.log('ℹ️ Banco de dados já inicializado');
+      // Mesmo assim, garantir que admin existe
+      await createAdminUser();
     } else {
       console.error('⚠️ Erro ao inicializar banco:', error.message);
     }
+  }
+};
+
+// Criar usuário admin com senha hasheada corretamente
+const createAdminUser = async () => {
+  try {
+    const adminEmail = 'admin@empresa.com';
+    const adminPassword = 'admin123';
+    
+    // Verificar se admin existe
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [adminEmail]);
+    
+    if (existingUser.rows.length === 0) {
+      // Criar usuário admin
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      const result = await pool.query(
+        'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id',
+        [adminEmail, hashedPassword, 'Administrador']
+      );
+      
+      // Adicionar role admin
+      await pool.query(
+        'INSERT INTO user_roles (user_id, role) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [result.rows[0].id, 'admin']
+      );
+      
+      console.log('✅ Usuário admin criado: admin@empresa.com / admin123');
+    } else {
+      // Atualizar senha do admin existente (garantir que está correta)
+      const hashedPassword = await bcrypt.hash(adminPassword, 10);
+      await pool.query('UPDATE users SET password_hash = $1 WHERE email = $2', [hashedPassword, adminEmail]);
+      console.log('✅ Senha do admin atualizada');
+    }
+  } catch (error) {
+    console.error('⚠️ Erro ao criar admin:', error.message);
   }
 };
 
