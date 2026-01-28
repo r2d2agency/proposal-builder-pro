@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Category, ProductLine } from '@/types';
+import { ImageUpload } from './ImageUpload';
 
 export interface ProductFormData {
   code: string;
@@ -300,15 +301,10 @@ export const ProductForm = ({
         <h3 className="text-sm font-semibold text-amber-500 border-b border-slate-700 pb-1">
           Imagem
         </h3>
-        <div className="space-y-1">
-          <Label className="text-xs">URL da Imagem</Label>
-          <Input
-            value={form.image_url}
-            onChange={(e) => updateField('image_url', e.target.value)}
-            className="border-slate-600 bg-slate-700 h-9"
-            placeholder="https://..."
-          />
-        </div>
+        <ImageUpload
+          value={form.image_url}
+          onChange={(url) => updateField('image_url', url)}
+        />
       </div>
 
       {/* Botões */}

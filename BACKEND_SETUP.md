@@ -136,7 +136,9 @@ Crie um novo projeto Node.js no EasyPanel:
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.11.3"
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.11.3",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
@@ -150,6 +152,7 @@ Crie um novo projeto Node.js no EasyPanel:
 DATABASE_URL=postgresql://user:password@host:5432/database
 JWT_SECRET=seu_secret_super_seguro_aqui
 PORT=3001
+UPLOAD_DIR=./uploads
 ```
 
 ### src/index.js
@@ -158,15 +161,53 @@ PORT=3001
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+// Configuração do diretório de uploads
+const uploadDir = process.env.UPLOAD_DIR || './uploads';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configuração do Multer para upload de arquivos
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const filename = `${uuidv4()}${ext}`;
+    cb(null, filename);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de arquivo não permitido'));
+    }
+  },
+});
+
 app.use(cors());
 app.use(express.json());
+
+// Servir arquivos estáticos de uploads
+app.use('/uploads', express.static(uploadDir));
 
 // Middleware de autenticação
 const authenticate = async (req, res, next) => {
@@ -535,9 +576,47 @@ app.put('/api/settings', authenticate, async (req, res) => {
   }
 });
 
+// UPLOAD DE IMAGENS
+app.post('/api/upload', upload.single('image'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Nenhum arquivo enviado' });
+    }
+    
+    // Retorna a URL pública do arquivo
+    const baseUrl = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3001}`;
+    const url = `${baseUrl}/uploads/${req.file.filename}`;
+    
+    res.json({ 
+      success: true, 
+      url,
+      filename: req.file.filename,
+      size: req.file.size,
+    });
+  } catch (error) {
+    console.error('Erro no upload:', error);
+    res.status(500).json({ message: 'Erro ao fazer upload' });
+  }
+});
+
+// Tratamento de erros do Multer
+app.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ message: 'Arquivo muito grande. Máximo: 5MB' });
+    }
+    return res.status(400).json({ message: error.message });
+  }
+  if (error.message === 'Tipo de arquivo não permitido') {
+    return res.status(400).json({ message: error.message });
+  }
+  next(error);
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`API rodando na porta ${PORT}`);
+  console.log(`Uploads salvos em: ${path.resolve(uploadDir)}`);
 });
 ```
 
@@ -555,8 +634,11 @@ app.listen(PORT, () => {
    - `DATABASE_URL`: postgresql://user:password@host:5432/database
    - `JWT_SECRET`: gere um secret seguro (ex: `openssl rand -hex 32`)
    - `PORT`: 3001
-4. Configure o domínio/subdomínio
-5. Deploy!
+   - `UPLOAD_DIR`: ./uploads
+   - `API_BASE_URL`: https://api.seudominio.com (URL pública da API)
+4. Configure um volume persistente para a pasta `uploads`
+5. Configure o domínio/subdomínio
+6. Deploy!
 
 ### 3. Frontend (Este projeto)
 1. Build do projeto: `npm run build`
@@ -568,3 +650,12 @@ app.listen(PORT, () => {
 - Senha: admin123
 
 **IMPORTANTE**: Altere a senha do admin após o primeiro login!
+
+### 5. Upload de Imagens
+O sistema suporta upload de imagens para produtos. As imagens são salvas na pasta `uploads` do servidor.
+
+**Volume Persistente (EasyPanel)**:
+Para que as imagens não sejam perdidas em deploys, configure um volume persistente:
+1. No EasyPanel, vá nas configurações do serviço da API
+2. Adicione um volume apontando para `/app/uploads`
+3. Isso garante que os arquivos permaneçam entre redeploys
