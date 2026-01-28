@@ -9,7 +9,9 @@ import {
   FilePlus, 
   LogOut, 
   Settings,
-  Users
+  Users,
+  Palette,
+  BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +33,11 @@ const Layout = ({ children }: LayoutProps) => {
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/produtos', icon: Package, label: 'Produtos' },
     { path: '/propostas', icon: FilePlus, label: 'Propostas' },
-    ...(user?.role === 'admin' ? [{ path: '/usuarios', icon: Users, label: 'Usuários' }] : []),
+    { path: '/catalogos', icon: BookOpen, label: 'Catálogos' },
+    ...(user?.role === 'admin' ? [
+      { path: '/templates', icon: Palette, label: 'Templates' },
+      { path: '/usuarios', icon: Users, label: 'Usuários' },
+    ] : []),
     { path: '/configuracoes', icon: Settings, label: 'Configurações' },
   ];
 

@@ -13,6 +13,8 @@ import Propostas from "./pages/Propostas";
 import PropostaEditor from "./pages/PropostaEditor";
 import Usuarios from "./pages/Usuarios";
 import Configuracoes from "./pages/Configuracoes";
+import Templates from "./pages/Templates";
+import Catalogos from "./pages/Catalogos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -78,6 +80,24 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Configuracoes />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/templates"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <Templates />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/catalogos"
+              element={
+                <ProtectedRoute>
+                  <Catalogos />
                 </ProtectedRoute>
               }
             />

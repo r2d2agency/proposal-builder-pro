@@ -107,6 +107,47 @@ CREATE TABLE IF NOT EXISTS company_settings (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Tabela de Templates de Catálogo
+CREATE TABLE IF NOT EXISTS catalog_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    -- Configurações de branding
+    logo_url TEXT,
+    primary_color VARCHAR(20) DEFAULT '#f59e0b',
+    secondary_color VARCHAR(20) DEFAULT '#1e293b',
+    accent_color VARCHAR(20) DEFAULT '#3b82f6',
+    font_family VARCHAR(100) DEFAULT 'Inter',
+    -- Layout da capa
+    cover_layout JSONB DEFAULT '{"logoPosition": "center", "titlePosition": "center", "showSubtitle": true}',
+    -- Layout dos produtos
+    products_layout JSONB DEFAULT '{"columns": 2, "showPrice": true, "showDescription": true, "showSpecs": true, "imageSize": "medium"}',
+    -- Layout do rodapé
+    footer_layout JSONB DEFAULT '{"showContact": true, "showAddress": true, "customText": ""}',
+    -- Metadados
+    is_default BOOLEAN DEFAULT false,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Tabela de Catálogos gerados
+CREATE TABLE IF NOT EXISTS catalogs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    template_id UUID REFERENCES catalog_templates(id),
+    client_name VARCHAR(255),
+    client_email VARCHAR(255),
+    -- Produtos selecionados (array de IDs)
+    product_ids UUID[] DEFAULT '{}',
+    -- PDF gerado
+    pdf_url TEXT,
+    status VARCHAR(20) DEFAULT 'draft',
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
 -- ============================================
 -- ÍNDICES
 -- ============================================
