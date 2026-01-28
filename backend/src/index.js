@@ -504,6 +504,197 @@ app.post('/api/upload', authenticate, upload.single('image'), (req, res) => {
   }
 });
 
+// ========== CATALOG TEMPLATES ==========
+
+// Listar templates
+app.get('/api/templates', authenticate, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM catalog_templates ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+// Buscar template por ID
+app.get('/api/templates/:id', authenticate, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM catalog_templates WHERE id = $1', [req.params.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Template não encontrado' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+// Criar template
+app.post('/api/templates', authenticate, async (req, res) => {
+  const { name, description, logo_url, primary_color, secondary_color, accent_color, font_family, cover_layout, products_layout, footer_layout, is_default } = req.body;
+  
+  try {
+    // Se for default, remover default dos outros
+    if (is_default) {
+      await pool.query('UPDATE catalog_templates SET is_default = false');
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO catalog_templates 
+        (name, description, logo_url, primary_color, secondary_color, accent_color, font_family, cover_layout, products_layout, footer_layout, is_default, created_by) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [name, description, logo_url, primary_color, secondary_color, accent_color, font_family, 
+       JSON.stringify(cover_layout), JSON.stringify(products_layout), JSON.stringify(footer_layout), 
+       is_default || false, req.user.id]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+// Atualizar template
+app.put('/api/templates/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  const { name, description, logo_url, primary_color, secondary_color, accent_color, font_family, cover_layout, products_layout, footer_layout, is_default } = req.body;
+  
+  try {
+    // Se for default, remover default dos outros
+    if (is_default) {
+      await pool.query('UPDATE catalog_templates SET is_default = false WHERE id != $1', [id]);
+    }
+    
+    const result = await pool.query(
+      `UPDATE catalog_templates SET 
+        name=$1, description=$2, logo_url=$3, primary_color=$4, secondary_color=$5, 
+        accent_color=$6, font_family=$7, cover_layout=$8, products_layout=$9, 
+        footer_layout=$10, is_default=$11, updated_at=NOW()
+       WHERE id=$12 RETURNING *`,
+      [name, description, logo_url, primary_color, secondary_color, accent_color, font_family,
+       JSON.stringify(cover_layout), JSON.stringify(products_layout), JSON.stringify(footer_layout),
+       is_default || false, id]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+// Deletar template
+app.delete('/api/templates/:id', authenticate, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM catalog_templates WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+// ========== CATALOGS ==========
+
+// Listar catálogos
+app.get('/api/catalogs', authenticate, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT c.*, t.name as template_name 
+       FROM catalogs c 
+       LEFT JOIN catalog_templates t ON c.template_id = t.id 
+       ORDER BY c.created_at DESC`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+// Buscar catálogo com produtos
+app.get('/api/catalogs/:id', authenticate, async (req, res) => {
+  try {
+    const catalog = await pool.query('SELECT * FROM catalogs WHERE id = $1', [req.params.id]);
+    if (catalog.rows.length === 0) {
+      return res.status(404).json({ message: 'Catálogo não encontrado' });
+    }
+    
+    const catalogData = catalog.rows[0];
+    
+    // Buscar produtos
+    if (catalogData.product_ids && catalogData.product_ids.length > 0) {
+      const products = await pool.query(
+        'SELECT * FROM products WHERE id = ANY($1)',
+        [catalogData.product_ids]
+      );
+      catalogData.products = products.rows;
+    } else {
+      catalogData.products = [];
+    }
+    
+    // Buscar template
+    if (catalogData.template_id) {
+      const template = await pool.query('SELECT * FROM catalog_templates WHERE id = $1', [catalogData.template_id]);
+      catalogData.template = template.rows[0] || null;
+    }
+    
+    res.json(catalogData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+// Criar catálogo
+app.post('/api/catalogs', authenticate, async (req, res) => {
+  const { name, template_id, client_name, client_email, product_ids } = req.body;
+  
+  try {
+    const result = await pool.query(
+      `INSERT INTO catalogs (name, template_id, client_name, client_email, product_ids, created_by) 
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [name, template_id, client_name, client_email, product_ids || [], req.user.id]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+// Atualizar catálogo
+app.put('/api/catalogs/:id', authenticate, async (req, res) => {
+  const { id } = req.params;
+  const { name, template_id, client_name, client_email, product_ids, status, pdf_url } = req.body;
+  
+  try {
+    const result = await pool.query(
+      `UPDATE catalogs SET 
+        name=$1, template_id=$2, client_name=$3, client_email=$4, 
+        product_ids=$5, status=COALESCE($6, status), pdf_url=COALESCE($7, pdf_url), updated_at=NOW()
+       WHERE id=$8 RETURNING *`,
+      [name, template_id, client_name, client_email, product_ids || [], status, pdf_url, id]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+// Deletar catálogo
+app.delete('/api/catalogs/:id', authenticate, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM catalogs WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
 // Tratamento de erros do Multer
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
