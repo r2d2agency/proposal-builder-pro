@@ -2,102 +2,98 @@ import { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Search, Package } from 'lucide-react';
-import { Product, Category } from '@/types';
+import { Plus, Search, Package } from 'lucide-react';
+import { Product, Category, ProductLine } from '@/types';
+import { ProductForm, ProductFormData } from '@/components/products/ProductForm';
+import { ProductTable } from '@/components/products/ProductTable';
+import { products as mockProducts, categories as mockCategories, productLines as mockLines } from '@/data/mockData';
+
+const emptyForm: ProductFormData = {
+  code: '',
+  name: '',
+  description: '',
+  category: '',
+  line: '',
+  price: '',
+  image_url: '',
+  power_watts: '',
+  luminous_flux: '',
+  color_temperature: '5000K',
+  beam_angle: '60°',
+  dimensions: '',
+  ip_rating: 'IP66',
+  warranty_years: '5',
+  voltage: '220V',
+  life_expectancy: '102.000h',
+  irc: 'IRC>80',
+  energy_class: 'Classe A',
+};
 
 const Produtos = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [lines, setLines] = useState<ProductLine[]>([]);
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedLine, setSelectedLine] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const { fetchWithAuth } = useApi();
+  const [form, setForm] = useState<ProductFormData>(emptyForm);
   const { toast } = useToast();
 
-  const [form, setForm] = useState({
-    code: '',
-    name: '',
-    description: '',
-    category: '',
-    price: '',
-    image_url: '',
-  });
-
   useEffect(() => {
-    loadProducts();
-    loadCategories();
+    // Carrega dados mockados por enquanto
+    loadMockData();
   }, []);
 
-  const loadProducts = async () => {
-    try {
-      const response = await fetchWithAuth('/api/products');
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar produtos:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadCategories = async () => {
-    try {
-      const response = await fetchWithAuth('/api/categories');
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar categorias:', error);
-    }
+  const loadMockData = () => {
+    setProducts(mockProducts);
+    setCategories(mockCategories);
+    setLines(mockLines);
+    setIsLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    try {
-      const url = editingProduct 
-        ? `/api/products/${editingProduct.id}` 
-        : '/api/products';
-      
-      const response = await fetchWithAuth(url, {
-        method: editingProduct ? 'PUT' : 'POST',
-        body: JSON.stringify({
-          ...form,
-          price: parseFloat(form.price),
-        }),
-      });
 
-      if (response.ok) {
-        toast({
-          title: editingProduct ? 'Produto atualizado!' : 'Produto cadastrado!',
-          description: 'Operação realizada com sucesso.',
-        });
-        loadProducts();
-        setIsDialogOpen(false);
-        resetForm();
-      } else {
-        throw new Error('Erro ao salvar produto');
-      }
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível salvar o produto.',
-        variant: 'destructive',
-      });
+    const newProduct: Product = {
+      id: editingProduct?.id || Date.now().toString(),
+      code: form.code,
+      name: form.name,
+      description: form.description,
+      category: form.category,
+      line: form.line,
+      price: parseFloat(form.price),
+      image_url: form.image_url,
+      power_watts: parseInt(form.power_watts) || 0,
+      luminous_flux: form.luminous_flux,
+      color_temperature: form.color_temperature,
+      beam_angle: form.beam_angle,
+      dimensions: form.dimensions,
+      ip_rating: form.ip_rating,
+      warranty_years: parseInt(form.warranty_years) || 0,
+      voltage: form.voltage,
+      life_expectancy: form.life_expectancy,
+      irc: form.irc,
+      energy_class: form.energy_class,
+      created_at: editingProduct?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (editingProduct) {
+      setProducts(products.map((p) => (p.id === editingProduct.id ? newProduct : p)));
+      toast({ title: 'Produto atualizado!', description: 'Operação realizada com sucesso.' });
+    } else {
+      setProducts([...products, newProduct]);
+      toast({ title: 'Produto cadastrado!', description: 'Operação realizada com sucesso.' });
     }
+
+    setIsDialogOpen(false);
+    resetForm();
   };
 
   const handleEdit = (product: Product) => {
@@ -107,51 +103,41 @@ const Produtos = () => {
       name: product.name,
       description: product.description,
       category: product.category,
+      line: product.line,
       price: product.price.toString(),
       image_url: product.image_url,
+      power_watts: product.power_watts.toString(),
+      luminous_flux: product.luminous_flux,
+      color_temperature: product.color_temperature,
+      beam_angle: product.beam_angle,
+      dimensions: product.dimensions,
+      ip_rating: product.ip_rating,
+      warranty_years: product.warranty_years.toString(),
+      voltage: product.voltage,
+      life_expectancy: product.life_expectancy,
+      irc: product.irc,
+      energy_class: product.energy_class,
     });
     setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este produto?')) return;
-
-    try {
-      const response = await fetchWithAuth(`/api/products/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        toast({ title: 'Produto excluído!' });
-        loadProducts();
-      }
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível excluir o produto.',
-        variant: 'destructive',
-      });
-    }
+    setProducts(products.filter((p) => p.id !== id));
+    toast({ title: 'Produto excluído!' });
   };
 
   const resetForm = () => {
-    setForm({
-      code: '',
-      name: '',
-      description: '',
-      category: '',
-      price: '',
-      image_url: '',
-    });
+    setForm(emptyForm);
     setEditingProduct(null);
   };
 
   const filteredProducts = products.filter((product) => {
-    const matchesSearch = 
+    const matchesSearch =
       product.name.toLowerCase().includes(search.toLowerCase()) ||
       product.code.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesLine = selectedLine === 'all' || product.line === selectedLine;
+    return matchesSearch && matchesLine;
   });
 
   return (
@@ -160,12 +146,14 @@ const Produtos = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">Produtos</h1>
-            <p className="text-slate-400">Gerencie seu catálogo de produtos</p>
+            <p className="text-slate-400">
+              Catálogo com {products.length} produtos cadastrados
+            </p>
           </div>
-          
+
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button 
+              <Button
                 className="bg-gradient-to-r from-amber-500 to-amber-600 text-white"
                 onClick={resetForm}
               >
@@ -173,91 +161,21 @@ const Produtos = () => {
                 Novo Produto
               </Button>
             </DialogTrigger>
-            <DialogContent className="border-slate-700 bg-slate-800 text-white sm:max-w-lg">
+            <DialogContent className="border-slate-700 bg-slate-800 text-white sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>
                   {editingProduct ? 'Editar Produto' : 'Novo Produto'}
                 </DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Código</Label>
-                    <Input
-                      value={form.code}
-                      onChange={(e) => setForm({ ...form, code: e.target.value })}
-                      className="border-slate-600 bg-slate-700"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Preço</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={form.price}
-                      onChange={(e) => setForm({ ...form, price: e.target.value })}
-                      className="border-slate-600 bg-slate-700"
-                      required
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Nome</Label>
-                  <Input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="border-slate-600 bg-slate-700"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Categoria</Label>
-                  <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                    <SelectTrigger className="border-slate-600 bg-slate-700">
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent className="border-slate-600 bg-slate-700">
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.name}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Descrição</Label>
-                  <Textarea
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    className="border-slate-600 bg-slate-700"
-                    rows={3}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>URL da Imagem</Label>
-                  <Input
-                    value={form.image_url}
-                    onChange={(e) => setForm({ ...form, image_url: e.target.value })}
-                    className="border-slate-600 bg-slate-700"
-                    placeholder="https://..."
-                  />
-                </div>
-                
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" className="bg-amber-500 hover:bg-amber-600">
-                    {editingProduct ? 'Salvar' : 'Cadastrar'}
-                  </Button>
-                </div>
-              </form>
+              <ProductForm
+                form={form}
+                onChange={setForm}
+                onSubmit={handleSubmit}
+                onCancel={() => setIsDialogOpen(false)}
+                categories={categories}
+                lines={lines}
+                isEditing={!!editingProduct}
+              />
             </DialogContent>
           </Dialog>
         </div>
@@ -274,15 +192,15 @@ const Produtos = () => {
                   className="border-slate-600 bg-slate-700 pl-10"
                 />
               </div>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <Select value={selectedLine} onValueChange={setSelectedLine}>
                 <SelectTrigger className="w-48 border-slate-600 bg-slate-700">
-                  <SelectValue placeholder="Categoria" />
+                  <SelectValue placeholder="Linha" />
                 </SelectTrigger>
                 <SelectContent className="border-slate-600 bg-slate-700">
-                  <SelectItem value="all">Todas</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.name}>
-                      {cat.name}
+                  <SelectItem value="all">Todas as Linhas</SelectItem>
+                  {lines.map((line) => (
+                    <SelectItem key={line.id} value={line.name}>
+                      {line.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -300,58 +218,11 @@ const Produtos = () => {
                 <p>Nenhum produto encontrado</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-slate-700 hover:bg-slate-700/50">
-                    <TableHead className="text-slate-400">Código</TableHead>
-                    <TableHead className="text-slate-400">Nome</TableHead>
-                    <TableHead className="text-slate-400">Categoria</TableHead>
-                    <TableHead className="text-slate-400">Preço</TableHead>
-                    <TableHead className="text-slate-400 text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProducts.map((product) => (
-                    <TableRow key={product.id} className="border-slate-700 hover:bg-slate-700/50">
-                      <TableCell className="font-mono text-white">{product.code}</TableCell>
-                      <TableCell className="text-white">
-                        <div className="flex items-center gap-3">
-                          {product.image_url && (
-                            <img 
-                              src={product.image_url} 
-                              alt={product.name}
-                              className="h-10 w-10 rounded object-cover"
-                            />
-                          )}
-                          {product.name}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-slate-400">{product.category}</TableCell>
-                      <TableCell className="text-white">
-                        R$ {product.price.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(product)}
-                          className="text-slate-400 hover:text-white"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(product.id)}
-                          className="text-slate-400 hover:text-red-500"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <ProductTable
+                products={filteredProducts}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
             )}
           </CardContent>
         </Card>
