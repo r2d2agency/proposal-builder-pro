@@ -5,11 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Package } from 'lucide-react';
+import { Plus, Search, Package, LayoutGrid, List } from 'lucide-react';
 import { Product, Category, ProductLine } from '@/types';
 import { ProductForm, ProductFormData } from '@/components/products/ProductForm';
 import { ProductTable } from '@/components/products/ProductTable';
+import { ProductGrid } from '@/components/products/ProductGrid';
 import { products as mockProducts, categories as mockCategories, productLines as mockLines } from '@/data/mockData';
 
 const emptyForm: ProductFormData = {
@@ -33,12 +35,15 @@ const emptyForm: ProductFormData = {
   energy_class: 'Classe A',
 };
 
+type ViewMode = 'grid' | 'table';
+
 const Produtos = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [lines, setLines] = useState<ProductLine[]>([]);
   const [search, setSearch] = useState('');
   const [selectedLine, setSelectedLine] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -46,7 +51,6 @@ const Produtos = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Carrega dados mockados por enquanto
     loadMockData();
   }, []);
 
@@ -192,19 +196,43 @@ const Produtos = () => {
                   className="border-slate-600 bg-slate-700 pl-10"
                 />
               </div>
-              <Select value={selectedLine} onValueChange={setSelectedLine}>
-                <SelectTrigger className="w-48 border-slate-600 bg-slate-700">
-                  <SelectValue placeholder="Linha" />
-                </SelectTrigger>
-                <SelectContent className="border-slate-600 bg-slate-700">
-                  <SelectItem value="all">Todas as Linhas</SelectItem>
-                  {lines.map((line) => (
-                    <SelectItem key={line.id} value={line.name}>
-                      {line.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select value={selectedLine} onValueChange={setSelectedLine}>
+                  <SelectTrigger className="w-40 border-slate-600 bg-slate-700">
+                    <SelectValue placeholder="Linha" />
+                  </SelectTrigger>
+                  <SelectContent className="border-slate-600 bg-slate-700">
+                    <SelectItem value="all">Todas as Linhas</SelectItem>
+                    {lines.map((line) => (
+                      <SelectItem key={line.id} value={line.name}>
+                        {line.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <ToggleGroup 
+                  type="single" 
+                  value={viewMode} 
+                  onValueChange={(value) => value && setViewMode(value as ViewMode)}
+                  className="border border-slate-600 rounded-md"
+                >
+                  <ToggleGroupItem 
+                    value="grid" 
+                    aria-label="Visualização em grid"
+                    className="data-[state=on]:bg-amber-500 data-[state=on]:text-white"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem 
+                    value="table" 
+                    aria-label="Visualização em tabela"
+                    className="data-[state=on]:bg-amber-500 data-[state=on]:text-white"
+                  >
+                    <List className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -217,6 +245,12 @@ const Produtos = () => {
                 <Package className="mb-4 h-12 w-12" />
                 <p>Nenhum produto encontrado</p>
               </div>
+            ) : viewMode === 'grid' ? (
+              <ProductGrid
+                products={filteredProducts}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
             ) : (
               <ProductTable
                 products={filteredProducts}
