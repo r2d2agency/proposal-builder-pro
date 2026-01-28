@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://teste-back-catalogo-ener.exf0ty.easypanel.host';
+const API_URL = (import.meta.env.VITE_API_URL || 'https://teste-back-catalogo-ener.exf0ty.easypanel.host').replace(/\/$/, '');
 
 export const useApi = () => {
   const { token, logout } = useAuth();
