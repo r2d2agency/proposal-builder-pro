@@ -12,6 +12,27 @@ const { v4: uuidv4 } = require('uuid');
 const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+// Função para inicializar o banco de dados
+const initDatabase = async () => {
+  try {
+    const initSQL = fs.readFileSync(path.join(__dirname, '../database/init.sql'), 'utf8');
+    await pool.query(initSQL);
+    console.log('✅ Banco de dados inicializado com sucesso!');
+  } catch (error) {
+    // Se o arquivo não existir ou já estiver inicializado, continua normalmente
+    if (error.code === 'ENOENT') {
+      console.log('ℹ️ Arquivo init.sql não encontrado, pulando inicialização');
+    } else if (error.message.includes('already exists') || error.message.includes('duplicate')) {
+      console.log('ℹ️ Banco de dados já inicializado');
+    } else {
+      console.error('⚠️ Erro ao inicializar banco:', error.message);
+    }
+  }
+};
+
+// Inicializar banco na startup
+initDatabase();
+
 // Configuração do diretório de uploads
 const uploadDir = process.env.UPLOAD_DIR || './uploads';
 if (!fs.existsSync(uploadDir)) {
@@ -459,7 +480,7 @@ app.use((error, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`API rodando na porta ${PORT}`);
-  console.log(`Uploads salvos em: ${path.resolve(uploadDir)}`);
+app.listen(PORT, '0.0.0.0', async () => {
+  console.log(`🚀 API rodando na porta ${PORT}`);
+  console.log(`📁 Uploads salvos em: ${path.resolve(uploadDir)}`);
 });
