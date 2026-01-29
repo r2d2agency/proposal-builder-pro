@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/hooks/use-toast';
 import { Save, Building2 } from 'lucide-react';
+import { BrandingSection } from '@/components/settings/BrandingSection';
 
 interface CompanySettings {
   name: string;
@@ -18,6 +19,10 @@ interface CompanySettings {
   website: string;
   cnpj: string;
   default_footer: string;
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  font_family: string;
 }
 
 const Configuracoes = () => {
@@ -30,6 +35,10 @@ const Configuracoes = () => {
     website: '',
     cnpj: '',
     default_footer: 'Obrigado pela preferência!',
+    primary_color: '#1a1a2e',
+    secondary_color: '#16213e',
+    accent_color: '#f59e0b',
+    font_family: 'Inter',
   });
   const [isSaving, setIsSaving] = useState(false);
   const { fetchWithAuth } = useApi();
@@ -44,7 +53,7 @@ const Configuracoes = () => {
       const response = await fetchWithAuth('/api/settings');
       if (response.ok) {
         const data = await response.json();
-        setSettings(data);
+        setSettings((prev) => ({ ...prev, ...data }));
       }
     } catch (error) {
       console.error('Erro ao carregar configurações:', error);
@@ -73,15 +82,25 @@ const Configuracoes = () => {
     }
   };
 
+  const handleBrandingChange = (branding: {
+    logo_url: string;
+    primary_color: string;
+    secondary_color: string;
+    accent_color: string;
+    font_family: string;
+  }) => {
+    setSettings((prev) => ({ ...prev, ...branding }));
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">Configurações</h1>
-            <p className="text-slate-400">Configure os dados da empresa</p>
+            <p className="text-slate-400">Configure os dados da empresa e identidade visual</p>
           </div>
-          
+
           <Button
             onClick={handleSave}
             disabled={isSaving}
@@ -92,6 +111,18 @@ const Configuracoes = () => {
           </Button>
         </div>
 
+        {/* Branding Section */}
+        <BrandingSection
+          settings={{
+            logo_url: settings.logo_url,
+            primary_color: settings.primary_color,
+            secondary_color: settings.secondary_color,
+            accent_color: settings.accent_color,
+            font_family: settings.font_family,
+          }}
+          onChange={handleBrandingChange}
+        />
+
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="border-slate-700 bg-slate-800/50">
             <CardHeader>
@@ -100,7 +131,7 @@ const Configuracoes = () => {
                 <CardTitle className="text-white">Dados da Empresa</CardTitle>
               </div>
               <CardDescription className="text-slate-400">
-                Informações que aparecerão nas propostas
+                Informações que aparecerão nos catálogos
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -112,7 +143,7 @@ const Configuracoes = () => {
                   className="border-slate-600 bg-slate-700 text-white"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label className="text-slate-300">CNPJ</Label>
                 <Input
@@ -122,17 +153,7 @@ const Configuracoes = () => {
                   placeholder="00.000.000/0000-00"
                 />
               </div>
-              
-              <div className="space-y-2">
-                <Label className="text-slate-300">URL do Logo</Label>
-                <Input
-                  value={settings.logo_url}
-                  onChange={(e) => setSettings({ ...settings, logo_url: e.target.value })}
-                  className="border-slate-600 bg-slate-700 text-white"
-                  placeholder="https://..."
-                />
-              </div>
-              
+
               <div className="space-y-2">
                 <Label className="text-slate-300">Endereço</Label>
                 <Textarea
@@ -162,7 +183,7 @@ const Configuracoes = () => {
                   placeholder="(00) 00000-0000"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label className="text-slate-300">Email</Label>
                 <Input
@@ -172,7 +193,7 @@ const Configuracoes = () => {
                   className="border-slate-600 bg-slate-700 text-white"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label className="text-slate-300">Website</Label>
                 <Input
@@ -182,7 +203,7 @@ const Configuracoes = () => {
                   placeholder="https://..."
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label className="text-slate-300">Rodapé Padrão</Label>
                 <Textarea
@@ -190,7 +211,7 @@ const Configuracoes = () => {
                   onChange={(e) => setSettings({ ...settings, default_footer: e.target.value })}
                   className="border-slate-600 bg-slate-700 text-white"
                   rows={3}
-                  placeholder="Texto que aparecerá no rodapé das propostas"
+                  placeholder="Texto que aparecerá no rodapé dos catálogos"
                 />
               </div>
             </CardContent>
