@@ -6,7 +6,6 @@ import {
   FileText, 
   LayoutDashboard, 
   Package, 
-  FilePlus, 
   LogOut, 
   Settings,
   Users,
@@ -32,7 +31,6 @@ const Layout = ({ children }: LayoutProps) => {
   const navItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/produtos', icon: Package, label: 'Produtos' },
-    { path: '/propostas', icon: FilePlus, label: 'Propostas' },
     { path: '/catalogos', icon: BookOpen, label: 'Catálogos' },
     ...(user?.role === 'admin' ? [
       { path: '/templates', icon: Palette, label: 'Templates' },
