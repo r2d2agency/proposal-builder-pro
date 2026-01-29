@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { Save, Building2 } from 'lucide-react';
 import { BrandingSection } from '@/components/settings/BrandingSection';
+import { SellerProfileSection } from '@/components/settings/SellerProfileSection';
 
 interface CompanySettings {
   name: string;
@@ -25,7 +27,18 @@ interface CompanySettings {
   font_family: string;
 }
 
+interface SellerSettings {
+  seller_name: string;
+  seller_email: string;
+  seller_phone: string;
+  seller_whatsapp: string;
+  seller_website: string;
+}
+
 const Configuracoes = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   const [settings, setSettings] = useState<CompanySettings>({
     name: '',
     logo_url: '',
@@ -40,6 +53,15 @@ const Configuracoes = () => {
     accent_color: '#f59e0b',
     font_family: 'Inter',
   });
+
+  const [sellerSettings, setSellerSettings] = useState<SellerSettings>({
+    seller_name: user?.name || '',
+    seller_email: user?.email || '',
+    seller_phone: '',
+    seller_whatsapp: '',
+    seller_website: '',
+  });
+
   const [isSaving, setIsSaving] = useState(false);
   const { fetchWithAuth } = useApi();
   const { toast } = useToast();
@@ -50,10 +72,19 @@ const Configuracoes = () => {
 
   const loadSettings = async () => {
     try {
-      const response = await fetchWithAuth('/api/settings');
-      if (response.ok) {
-        const data = await response.json();
+      const [companyRes, sellerRes] = await Promise.all([
+        fetchWithAuth('/api/settings'),
+        fetchWithAuth('/api/seller-profile'),
+      ]);
+
+      if (companyRes.ok) {
+        const data = await companyRes.json();
         setSettings((prev) => ({ ...prev, ...data }));
+      }
+
+      if (sellerRes.ok) {
+        const data = await sellerRes.json();
+        setSellerSettings((prev) => ({ ...prev, ...data }));
       }
     } catch (error) {
       console.error('Erro ao carregar configurações:', error);
@@ -63,14 +94,25 @@ const Configuracoes = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const response = await fetchWithAuth('/api/settings', {
-        method: 'PUT',
-        body: JSON.stringify(settings),
-      });
+      const promises = [
+        fetchWithAuth('/api/seller-profile', {
+          method: 'PUT',
+          body: JSON.stringify(sellerSettings),
+        }),
+      ];
 
-      if (response.ok) {
-        toast({ title: 'Configurações salvas com sucesso!' });
+      // Apenas admin pode salvar configurações da empresa
+      if (isAdmin) {
+        promises.push(
+          fetchWithAuth('/api/settings', {
+            method: 'PUT',
+            body: JSON.stringify(settings),
+          })
+        );
       }
+
+      await Promise.all(promises);
+      toast({ title: 'Configurações salvas com sucesso!' });
     } catch (error) {
       toast({
         title: 'Erro',
@@ -98,7 +140,11 @@ const Configuracoes = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">Configurações</h1>
-            <p className="text-slate-400">Configure os dados da empresa e identidade visual</p>
+            <p className="text-slate-400">
+              {isAdmin
+                ? 'Configure os dados da empresa e seu perfil de vendedor'
+                : 'Configure seu perfil de vendedor'}
+            </p>
           </div>
 
           <Button
@@ -111,112 +157,120 @@ const Configuracoes = () => {
           </Button>
         </div>
 
-        {/* Branding Section */}
-        <BrandingSection
-          settings={{
-            logo_url: settings.logo_url,
-            primary_color: settings.primary_color,
-            secondary_color: settings.secondary_color,
-            accent_color: settings.accent_color,
-            font_family: settings.font_family,
-          }}
-          onChange={handleBrandingChange}
-        />
+        {/* Perfil do Vendedor - visível para todos */}
+        <SellerProfileSection settings={sellerSettings} onChange={setSellerSettings} />
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="border-slate-700 bg-slate-800/50">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-amber-500" />
-                <CardTitle className="text-white">Dados da Empresa</CardTitle>
-              </div>
-              <CardDescription className="text-slate-400">
-                Informações que aparecerão nos catálogos
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-slate-300">Nome da Empresa</Label>
-                <Input
-                  value={settings.name}
-                  onChange={(e) => setSettings({ ...settings, name: e.target.value })}
-                  className="border-slate-600 bg-slate-700 text-white"
-                />
-              </div>
+        {/* Apenas admin vê as configurações da empresa */}
+        {isAdmin && (
+          <>
+            {/* Branding Section */}
+            <BrandingSection
+              settings={{
+                logo_url: settings.logo_url,
+                primary_color: settings.primary_color,
+                secondary_color: settings.secondary_color,
+                accent_color: settings.accent_color,
+                font_family: settings.font_family,
+              }}
+              onChange={handleBrandingChange}
+            />
 
-              <div className="space-y-2">
-                <Label className="text-slate-300">CNPJ</Label>
-                <Input
-                  value={settings.cnpj}
-                  onChange={(e) => setSettings({ ...settings, cnpj: e.target.value })}
-                  className="border-slate-600 bg-slate-700 text-white"
-                  placeholder="00.000.000/0000-00"
-                />
-              </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card className="border-slate-700 bg-slate-800/50">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-amber-500" />
+                    <CardTitle className="text-white">Dados da Empresa</CardTitle>
+                  </div>
+                  <CardDescription className="text-slate-400">
+                    Informações que aparecerão nos catálogos
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Nome da Empresa</Label>
+                    <Input
+                      value={settings.name}
+                      onChange={(e) => setSettings({ ...settings, name: e.target.value })}
+                      className="border-slate-600 bg-slate-700 text-white"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label className="text-slate-300">Endereço</Label>
-                <Textarea
-                  value={settings.address}
-                  onChange={(e) => setSettings({ ...settings, address: e.target.value })}
-                  className="border-slate-600 bg-slate-700 text-white"
-                  rows={2}
-                />
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">CNPJ</Label>
+                    <Input
+                      value={settings.cnpj}
+                      onChange={(e) => setSettings({ ...settings, cnpj: e.target.value })}
+                      className="border-slate-600 bg-slate-700 text-white"
+                      placeholder="00.000.000/0000-00"
+                    />
+                  </div>
 
-          <Card className="border-slate-700 bg-slate-800/50">
-            <CardHeader>
-              <CardTitle className="text-white">Contato</CardTitle>
-              <CardDescription className="text-slate-400">
-                Informações de contato da empresa
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-slate-300">Telefone</Label>
-                <Input
-                  value={settings.phone}
-                  onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                  className="border-slate-600 bg-slate-700 text-white"
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Endereço</Label>
+                    <Textarea
+                      value={settings.address}
+                      onChange={(e) => setSettings({ ...settings, address: e.target.value })}
+                      className="border-slate-600 bg-slate-700 text-white"
+                      rows={2}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
-              <div className="space-y-2">
-                <Label className="text-slate-300">Email</Label>
-                <Input
-                  type="email"
-                  value={settings.email}
-                  onChange={(e) => setSettings({ ...settings, email: e.target.value })}
-                  className="border-slate-600 bg-slate-700 text-white"
-                />
-              </div>
+              <Card className="border-slate-700 bg-slate-800/50">
+                <CardHeader>
+                  <CardTitle className="text-white">Contato da Empresa</CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Informações de contato institucional
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Telefone</Label>
+                    <Input
+                      value={settings.phone}
+                      onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                      className="border-slate-600 bg-slate-700 text-white"
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label className="text-slate-300">Website</Label>
-                <Input
-                  value={settings.website}
-                  onChange={(e) => setSettings({ ...settings, website: e.target.value })}
-                  className="border-slate-600 bg-slate-700 text-white"
-                  placeholder="https://..."
-                />
-              </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Email</Label>
+                    <Input
+                      type="email"
+                      value={settings.email}
+                      onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                      className="border-slate-600 bg-slate-700 text-white"
+                    />
+                  </div>
 
-              <div className="space-y-2">
-                <Label className="text-slate-300">Rodapé Padrão</Label>
-                <Textarea
-                  value={settings.default_footer}
-                  onChange={(e) => setSettings({ ...settings, default_footer: e.target.value })}
-                  className="border-slate-600 bg-slate-700 text-white"
-                  rows={3}
-                  placeholder="Texto que aparecerá no rodapé dos catálogos"
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Website</Label>
+                    <Input
+                      value={settings.website}
+                      onChange={(e) => setSettings({ ...settings, website: e.target.value })}
+                      className="border-slate-600 bg-slate-700 text-white"
+                      placeholder="https://..."
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Rodapé Padrão</Label>
+                    <Textarea
+                      value={settings.default_footer}
+                      onChange={(e) => setSettings({ ...settings, default_footer: e.target.value })}
+                      className="border-slate-600 bg-slate-700 text-white"
+                      rows={3}
+                      placeholder="Texto que aparecerá no rodapé dos catálogos"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        )}
       </div>
     </Layout>
   );

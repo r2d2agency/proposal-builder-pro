@@ -23,6 +23,14 @@ interface CompanySettings {
   default_footer: string;
 }
 
+interface SellerInfo {
+  name: string;
+  email: string;
+  phone: string;
+  whatsapp: string;
+  website: string;
+}
+
 const CatalogPDFGenerator = ({ catalog, onClose }: CatalogPDFGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [template, setTemplate] = useState<CatalogTemplate | null>(null);
@@ -30,6 +38,9 @@ const CatalogPDFGenerator = ({ catalog, onClose }: CatalogPDFGeneratorProps) => 
   const contentRef = useRef<HTMLDivElement>(null);
   const { fetchWithAuth } = useApi();
   const { toast } = useToast();
+
+  // Dados do vendedor vêm do catálogo
+  const seller: SellerInfo | null = (catalog as any).seller || null;
 
   useEffect(() => {
     loadData();
@@ -92,7 +103,6 @@ const CatalogPDFGenerator = ({ catalog, onClose }: CatalogPDFGeneratorProps) => 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      // Capturar cada página
       const pages = contentRef.current.querySelectorAll('.pdf-page');
 
       for (let i = 0; i < pages.length; i++) {
@@ -114,7 +124,6 @@ const CatalogPDFGenerator = ({ catalog, onClose }: CatalogPDFGeneratorProps) => 
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
 
-      // Download
       pdf.save(`${catalog.name.replace(/\s+/g, '_')}.pdf`);
 
       toast({ title: 'PDF gerado com sucesso!' });
@@ -128,7 +137,6 @@ const CatalogPDFGenerator = ({ catalog, onClose }: CatalogPDFGeneratorProps) => 
 
   const products = catalog.products || [];
 
-  // Calcular produtos por página (baseado no layout)
   const productsPerPage = productsLayout.columns === 1 ? 3 : productsLayout.columns === 2 ? 4 : 6;
   const productPages: typeof products[] = [];
 
@@ -205,6 +213,30 @@ const CatalogPDFGenerator = ({ catalog, onClose }: CatalogPDFGeneratorProps) => 
                 </p>
               )}
             </div>
+
+            {/* Assinatura do Vendedor na Capa */}
+            {seller && (
+              <div
+                style={{
+                  backgroundColor: 'rgba(0,0,0,0.3)',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '20px',
+                }}
+              >
+                <p style={{ color: primaryColor, fontSize: '12px', marginBottom: '8px', fontWeight: 'bold' }}>
+                  Seu Consultor
+                </p>
+                <p style={{ color: '#fff', fontSize: '18px', fontWeight: 'bold' }}>
+                  {seller.name}
+                </p>
+                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', marginTop: '8px' }}>
+                  {seller.email && <p>✉️ {seller.email}</p>}
+                  {seller.whatsapp && <p>📱 {seller.whatsapp}</p>}
+                  {seller.phone && !seller.whatsapp && <p>📞 {seller.phone}</p>}
+                </div>
+              </div>
+            )}
 
             <div
               style={{
@@ -331,7 +363,7 @@ const CatalogPDFGenerator = ({ catalog, onClose }: CatalogPDFGeneratorProps) => 
                 ))}
               </div>
 
-              {/* Footer */}
+              {/* Footer com dados do vendedor */}
               <div
                 style={{
                   marginTop: '20px',
@@ -344,11 +376,10 @@ const CatalogPDFGenerator = ({ catalog, onClose }: CatalogPDFGeneratorProps) => 
                 }}
               >
                 <div>
-                  {footerLayout.showContact && companySettings?.phone && (
-                    <span>{companySettings.phone} • </span>
-                  )}
-                  {footerLayout.showContact && companySettings?.email && (
-                    <span>{companySettings.email}</span>
+                  {seller && (
+                    <span style={{ fontWeight: 'bold', color: secondaryColor }}>
+                      {seller.name} • {seller.whatsapp || seller.phone || seller.email}
+                    </span>
                   )}
                 </div>
                 <div>Página {pageIndex + 2}</div>
@@ -356,7 +387,7 @@ const CatalogPDFGenerator = ({ catalog, onClose }: CatalogPDFGeneratorProps) => 
             </div>
           ))}
 
-          {/* Página final / Contato */}
+          {/* Página final / Contato com assinatura do vendedor */}
           <div
             className="pdf-page"
             style={{
@@ -384,17 +415,48 @@ const CatalogPDFGenerator = ({ catalog, onClose }: CatalogPDFGeneratorProps) => 
               {companySettings?.name || 'Entre em Contato'}
             </h2>
 
-            <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '18px', lineHeight: '2' }}>
+            {/* Dados da empresa */}
+            <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '16px', lineHeight: '2', marginBottom: '40px' }}>
               {footerLayout.showContact && companySettings?.phone && <p>📞 {companySettings.phone}</p>}
               {footerLayout.showContact && companySettings?.email && <p>✉️ {companySettings.email}</p>}
               {companySettings?.website && <p>🌐 {companySettings.website}</p>}
               {footerLayout.showAddress && companySettings?.address && (
-                <p style={{ marginTop: '20px' }}>📍 {companySettings.address}</p>
+                <p style={{ marginTop: '10px' }}>📍 {companySettings.address}</p>
               )}
             </div>
 
+            {/* Card do Vendedor em destaque */}
+            {seller && (
+              <div
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  borderRadius: '16px',
+                  padding: '24px 40px',
+                  marginBottom: '30px',
+                  borderLeft: `4px solid ${primaryColor}`,
+                }}
+              >
+                <p style={{ color: primaryColor, fontSize: '14px', marginBottom: '8px', fontWeight: 'bold' }}>
+                  Seu Consultor Comercial
+                </p>
+                <p style={{ color: '#fff', fontSize: '24px', fontWeight: 'bold', marginBottom: '12px' }}>
+                  {seller.name}
+                </p>
+                <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: '16px', lineHeight: '1.8' }}>
+                  {seller.email && <p>✉️ {seller.email}</p>}
+                  {seller.phone && <p>📞 {seller.phone}</p>}
+                  {seller.whatsapp && (
+                    <p style={{ color: '#25D366' }}>
+                      📱 WhatsApp: {seller.whatsapp}
+                    </p>
+                  )}
+                  {seller.website && <p>🌐 {seller.website}</p>}
+                </div>
+              </div>
+            )}
+
             {footerLayout.customText && (
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', marginTop: '40px' }}>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
                 {footerLayout.customText}
               </p>
             )}
@@ -404,7 +466,7 @@ const CatalogPDFGenerator = ({ catalog, onClose }: CatalogPDFGeneratorProps) => 
                 style={{
                   color: primaryColor,
                   fontSize: '16px',
-                  marginTop: '60px',
+                  marginTop: '40px',
                   fontWeight: 'bold',
                 }}
               >
