@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CatalogTemplate, CoverLayout, ProductsLayout, FooterLayout } from '@/types/catalog';
-import { Save, X, Palette, Layout, FileText, Image } from 'lucide-react';
+import { Save, X, Palette, Layout, FileText, Image, Upload, Loader2 } from 'lucide-react';
+import { useApi } from '@/hooks/useApi';
+import { useToast } from '@/hooks/use-toast';
 import TemplatePreview from './TemplatePreview';
 
 interface TemplateEditorProps {
@@ -54,6 +56,37 @@ const TemplateEditor = ({ template, onSave, onCancel }: TemplateEditorProps) => 
     template?.footer_layout || defaultFooterLayout
   );
   const [isDefault, setIsDefault] = useState(template?.is_default || false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFile } = useApi();
+  const { toast } = useToast();
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      toast({ title: 'Formato inválido', description: 'Use PNG, JPG, SVG ou WebP', variant: 'destructive' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Arquivo muito grande', description: 'Máximo 5MB', variant: 'destructive' });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const result = await uploadFile(file);
+      setLogoUrl(result.url);
+      toast({ title: 'Logo enviado com sucesso!' });
+    } catch (error) {
+      toast({ title: 'Erro ao enviar logo', variant: 'destructive' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSave = () => {
     onSave({
@@ -120,13 +153,51 @@ const TemplateEditor = ({ template, onSave, onCancel }: TemplateEditorProps) => 
             </div>
 
             <div className="space-y-2">
-              <Label className="text-slate-300">URL do Logo</Label>
-              <Input
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                className="border-slate-600 bg-slate-700 text-white"
-                placeholder="https://..."
-              />
+              <Label className="text-slate-300">Logo do Template</Label>
+              <div className="space-y-3">
+                {logoUrl && (
+                  <div className="flex items-center gap-3 rounded-lg border border-slate-600 bg-slate-700 p-3">
+                    <img src={logoUrl} alt="Logo" className="h-12 w-auto max-w-[120px] object-contain" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setLogoUrl('')}
+                      className="ml-auto text-red-400 hover:text-red-300"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="mr-2 h-4 w-4" />
+                    )}
+                    {isUploading ? 'Enviando...' : 'Enviar Logo'}
+                  </Button>
+                </div>
+                <Input
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  className="border-slate-600 bg-slate-700 text-white"
+                  placeholder="Ou cole uma URL..."
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
