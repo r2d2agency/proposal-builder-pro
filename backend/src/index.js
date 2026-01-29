@@ -465,14 +465,19 @@ app.get('/api/settings', authenticate, async (req, res) => {
 });
 
 app.put('/api/settings', authenticate, async (req, res) => {
-  const { name, logo_url, address, phone, email, website, cnpj, default_footer } = req.body;
+  const { name, logo_url, address, phone, email, website, cnpj, default_footer, primary_color, secondary_color, accent_color, font_family } = req.body;
   
   try {
     await pool.query(
       `UPDATE company_settings SET 
         name=$1, logo_url=$2, address=$3, phone=$4, email=$5, 
-        website=$6, cnpj=$7, default_footer=$8, updated_at=NOW()`,
-      [name, logo_url, address, phone, email, website, cnpj, default_footer]
+        website=$6, cnpj=$7, default_footer=$8,
+        primary_color=COALESCE($9, primary_color),
+        secondary_color=COALESCE($10, secondary_color),
+        accent_color=COALESCE($11, accent_color),
+        font_family=COALESCE($12, font_family),
+        updated_at=NOW()`,
+      [name, logo_url, address, phone, email, website, cnpj, default_footer, primary_color, secondary_color, accent_color, font_family]
     );
     res.json({ success: true });
   } catch (error) {

@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Palette, Upload, X, Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Palette, Upload, X, Loader2, Link } from 'lucide-react';
 import { useApi } from '@/hooks/useApi';
 import { useToast } from '@/hooks/use-toast';
 
@@ -31,8 +32,9 @@ const fontOptions = [
 
 export const BrandingSection = ({ settings, onChange }: BrandingSectionProps) => {
   const [isUploading, setIsUploading] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { API_URL } = useApi();
+  const { uploadFile } = useApi();
   const { toast } = useToast();
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -60,19 +62,7 @@ export const BrandingSection = ({ settings, onChange }: BrandingSectionProps) =>
     setIsUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await fetch(`${API_URL}/api/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao fazer upload');
-      }
-
-      const data = await response.json();
+      const data = await uploadFile(file);
       onChange({ ...settings, logo_url: data.url });
       toast({
         title: 'Logo enviado!',
@@ -82,7 +72,7 @@ export const BrandingSection = ({ settings, onChange }: BrandingSectionProps) =>
       console.error('Erro no upload:', error);
       toast({
         title: 'Erro no upload',
-        description: 'Não foi possível enviar a imagem.',
+        description: 'Não foi possível enviar a imagem. Verifique se o backend está configurado.',
         variant: 'destructive',
       });
     } finally {
@@ -90,6 +80,17 @@ export const BrandingSection = ({ settings, onChange }: BrandingSectionProps) =>
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    }
+  };
+
+  const handleUrlSubmit = () => {
+    if (urlInput.trim()) {
+      onChange({ ...settings, logo_url: urlInput.trim() });
+      setUrlInput('');
+      toast({
+        title: 'Logo atualizado!',
+        description: 'URL do logo definida com sucesso.',
+      });
     }
   };
 
@@ -123,44 +124,95 @@ export const BrandingSection = ({ settings, onChange }: BrandingSectionProps) =>
                     (e.target as HTMLImageElement).src = '/placeholder.svg';
                   }}
                 />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleClearLogo}
-                >
-                  <X className="mr-1 h-4 w-4" />
-                  Remover
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-slate-600"
+                  >
+                    <Upload className="mr-1 h-4 w-4" />
+                    Trocar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleClearLogo}
+                  >
+                    <X className="mr-1 h-4 w-4" />
+                    Remover
+                  </Button>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
               </div>
             </div>
           ) : (
-            <div
-              className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed border-slate-600 p-6 transition-colors hover:border-amber-500/50"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              {isUploading ? (
-                <>
-                  <Loader2 className="h-10 w-10 animate-spin text-amber-500" />
-                  <span className="text-sm text-slate-400">Enviando...</span>
-                </>
-              ) : (
-                <>
-                  <Upload className="h-10 w-10 text-slate-500" />
-                  <span className="text-sm text-slate-400">
-                    Clique para enviar o logo da empresa
-                  </span>
-                  <span className="text-xs text-slate-500">PNG, JPG ou SVG (máx. 5MB)</span>
-                </>
-              )}
-            </div>
+            <Tabs defaultValue="upload" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-slate-700">
+                <TabsTrigger value="upload" className="text-xs">
+                  <Upload className="mr-1 h-3 w-3" />
+                  Enviar Arquivo
+                </TabsTrigger>
+                <TabsTrigger value="url" className="text-xs">
+                  <Link className="mr-1 h-3 w-3" />
+                  URL
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="upload" className="mt-3">
+                <div
+                  className="flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed border-slate-600 p-8 transition-colors hover:border-amber-500/50"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-12 w-12 animate-spin text-amber-500" />
+                      <span className="text-sm text-slate-400">Enviando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-12 w-12 text-slate-500" />
+                      <span className="text-sm text-slate-400">
+                        Clique para enviar o logo da empresa
+                      </span>
+                      <span className="text-xs text-slate-500">PNG, JPG, SVG ou WebP (máx. 5MB)</span>
+                    </>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="url" className="mt-3 space-y-3">
+                <Input
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  placeholder="https://exemplo.com/logo.png"
+                  className="border-slate-600 bg-slate-700 text-white"
+                />
+                <Button
+                  type="button"
+                  onClick={handleUrlSubmit}
+                  disabled={!urlInput.trim()}
+                  className="w-full bg-amber-500 hover:bg-amber-600"
+                >
+                  Usar URL
+                </Button>
+              </TabsContent>
+            </Tabs>
           )}
         </div>
 
@@ -170,7 +222,7 @@ export const BrandingSection = ({ settings, onChange }: BrandingSectionProps) =>
             <Label className="text-slate-300">Cor Primária</Label>
             <div className="flex gap-2">
               <div
-                className="h-10 w-10 cursor-pointer rounded-lg border border-slate-600"
+                className="h-10 w-10 cursor-pointer rounded-lg border border-slate-600 shrink-0"
                 style={{ backgroundColor: settings.primary_color }}
                 onClick={() => document.getElementById('primary-color')?.click()}
               />
@@ -194,7 +246,7 @@ export const BrandingSection = ({ settings, onChange }: BrandingSectionProps) =>
             <Label className="text-slate-300">Cor Secundária</Label>
             <div className="flex gap-2">
               <div
-                className="h-10 w-10 cursor-pointer rounded-lg border border-slate-600"
+                className="h-10 w-10 cursor-pointer rounded-lg border border-slate-600 shrink-0"
                 style={{ backgroundColor: settings.secondary_color }}
                 onClick={() => document.getElementById('secondary-color')?.click()}
               />
@@ -218,7 +270,7 @@ export const BrandingSection = ({ settings, onChange }: BrandingSectionProps) =>
             <Label className="text-slate-300">Cor de Destaque</Label>
             <div className="flex gap-2">
               <div
-                className="h-10 w-10 cursor-pointer rounded-lg border border-slate-600"
+                className="h-10 w-10 cursor-pointer rounded-lg border border-slate-600 shrink-0"
                 style={{ backgroundColor: settings.accent_color }}
                 onClick={() => document.getElementById('accent-color')?.click()}
               />
@@ -258,7 +310,7 @@ export const BrandingSection = ({ settings, onChange }: BrandingSectionProps) =>
         {/* Preview */}
         <div className="space-y-2">
           <Label className="text-slate-300">Prévia das Cores</Label>
-          <div className="flex gap-2 rounded-lg border border-slate-600 bg-slate-900 p-4">
+          <div className="flex gap-4 rounded-lg border border-slate-600 bg-slate-900 p-4">
             <div className="flex flex-col items-center gap-1">
               <div
                 className="h-12 w-12 rounded-lg"

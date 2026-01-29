@@ -104,6 +104,11 @@ CREATE TABLE IF NOT EXISTS company_settings (
     website VARCHAR(255),
     cnpj VARCHAR(20),
     default_footer TEXT,
+    -- Branding
+    primary_color VARCHAR(20) DEFAULT '#1a1a2e',
+    secondary_color VARCHAR(20) DEFAULT '#16213e',
+    accent_color VARCHAR(20) DEFAULT '#f59e0b',
+    font_family VARCHAR(100) DEFAULT 'Inter',
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
