@@ -148,6 +148,19 @@ CREATE TABLE IF NOT EXISTS catalogs (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Tabela de Perfil do Vendedor
+CREATE TABLE IF NOT EXISTS seller_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE UNIQUE NOT NULL,
+    seller_name VARCHAR(255),
+    seller_email VARCHAR(255),
+    seller_phone VARCHAR(50),
+    seller_whatsapp VARCHAR(50),
+    seller_website VARCHAR(255),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
 -- ============================================
 -- ÍNDICES
 -- ============================================

@@ -481,6 +481,59 @@ app.put('/api/settings', authenticate, async (req, res) => {
   }
 });
 
+// SELLER PROFILE
+app.get('/api/seller-profile', authenticate, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM seller_profiles WHERE user_id = $1',
+      [req.user.id]
+    );
+    
+    if (result.rows.length === 0) {
+      // Retornar perfil vazio com dados do usuário
+      return res.json({
+        seller_name: req.user.name || '',
+        seller_email: req.user.email || '',
+        seller_phone: '',
+        seller_whatsapp: '',
+        seller_website: '',
+      });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
+app.put('/api/seller-profile', authenticate, async (req, res) => {
+  const { seller_name, seller_email, seller_phone, seller_whatsapp, seller_website } = req.body;
+  
+  try {
+    // Upsert - inserir ou atualizar
+    const result = await pool.query(
+      `INSERT INTO seller_profiles (user_id, seller_name, seller_email, seller_phone, seller_whatsapp, seller_website)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (user_id) 
+       DO UPDATE SET 
+         seller_name = EXCLUDED.seller_name,
+         seller_email = EXCLUDED.seller_email,
+         seller_phone = EXCLUDED.seller_phone,
+         seller_whatsapp = EXCLUDED.seller_whatsapp,
+         seller_website = EXCLUDED.seller_website,
+         updated_at = NOW()
+       RETURNING *`,
+      [req.user.id, seller_name, seller_email, seller_phone, seller_whatsapp, seller_website]
+    );
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erro interno' });
+  }
+});
+
 // UPLOAD DE IMAGENS
 app.post('/api/upload', authenticate, upload.single('image'), (req, res) => {
   try {
@@ -613,7 +666,7 @@ app.get('/api/catalogs', authenticate, async (req, res) => {
   }
 });
 
-// Buscar catálogo com produtos
+// Buscar catálogo com produtos e dados do vendedor
 app.get('/api/catalogs/:id', authenticate, async (req, res) => {
   try {
     const catalog = await pool.query('SELECT * FROM catalogs WHERE id = $1', [req.params.id]);
@@ -638,6 +691,27 @@ app.get('/api/catalogs/:id', authenticate, async (req, res) => {
     if (catalogData.template_id) {
       const template = await pool.query('SELECT * FROM catalog_templates WHERE id = $1', [catalogData.template_id]);
       catalogData.template = template.rows[0] || null;
+    }
+    
+    // Buscar dados do vendedor que criou o catálogo
+    if (catalogData.created_by) {
+      const sellerProfile = await pool.query(
+        `SELECT sp.*, u.name as user_name, u.email as user_email 
+         FROM seller_profiles sp 
+         RIGHT JOIN users u ON sp.user_id = u.id
+         WHERE u.id = $1`,
+        [catalogData.created_by]
+      );
+      if (sellerProfile.rows.length > 0) {
+        const sp = sellerProfile.rows[0];
+        catalogData.seller = {
+          name: sp.seller_name || sp.user_name,
+          email: sp.seller_email || sp.user_email,
+          phone: sp.seller_phone || '',
+          whatsapp: sp.seller_whatsapp || '',
+          website: sp.seller_website || '',
+        };
+      }
     }
     
     res.json(catalogData);
